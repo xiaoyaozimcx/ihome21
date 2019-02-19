@@ -13,6 +13,7 @@ def get_user_auth():
     if  user is None:
         return jsonify(errno=RET.SESSIONERR, errmsg='用户未登录')
 
+
     if user.real_name and user.id_card:
         data = {
             'real_name':user.real_name,
