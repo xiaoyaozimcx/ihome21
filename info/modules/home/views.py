@@ -20,31 +20,23 @@ def favicon():
 def my_houses_list():
     """
     我的房屋发布列表:
-    1 判断用户是否已登陆
-    2 判断用户是否实名认证
-    3 如果实名认证,获取数据库该房东相关房屋信息
-    4 返回结果和data
+    1 获取数据库该房东相关房屋信息
+    2 遍历,并以字典格式添加至data列表
+    3 返回结果和data
 
     :return:
     """
-    # 判断用户是否已登陆
+
     user = g.user
-    if not user:
-        return redirect('/index.html')
-    # 判断用户是否实名认证
+
     try:
-        real_name = user.real_name
+        houses = House.query.filter(House.user_id == user.id).order_by(House.create_time.desc()).all()
     except Exception as e:
         current_app.logger.error(e)
         return jsonify(errno=RET.DBERR, errmsg='查询数据异常')
-    # 如果实名认证,查询该房东所有房屋信息并降序排序,遍历添加到列表
-    if real_name:
-        try:
-            houses = House.query.filer(House.user_id == user.id).order_by(House.create_time.desc()).all()
-        except Exception as e:
-            current_app.logger.error(e)
-        data = []
-        for house in houses:
-            data.append(house.to_basic_dict())
-    # 返回结果
-        return jsonify(errno=RET.OK, errmsg='OK', data=data)
+
+    data = []
+    for house in houses:
+        data.append(house.to_basic_dict())
+# 返回结果
+    return jsonify(errno=RET.OK, errmsg='OK', data=data)
