@@ -1,5 +1,5 @@
 from . import profile_blue
-from flask import jsonify,g,current_app,request,redirect
+from flask import jsonify,g,current_app,request
 from info.utils.commons import login_required
 from info import db
 from info.utils.response_code import RET
@@ -9,16 +9,8 @@ import re
 @profile_blue.route('/api/v1.0/user/auth',methods=['GET'])
 @login_required
 def get_user_auth():
-    # user_id = g.get('user_id')
-    # try:
-    #     user = User.query.get(user_id)
-    # except Exception as e:
-    #     current_app.logger.error(e)
-    #     return jsonify(errno=RET.DBERR, errmsg="获取用户实名认证信息失败")
-    # if user is None:
-    #     return jsonify(errno=RET.NODATA, errmsg="无效操作")
     user = g.user
-    if not user:
+    if  user is None:
         return jsonify(errno=RET.SESSIONERR, errmsg='用户未登录')
 
     if user.real_name and user.id_card:
@@ -53,4 +45,5 @@ def set_user_auth():
         db.session.rollback()
         return jsonify(errno=RET.SESSIONERR, errmsg="保存用户实名信息失败")
     return jsonify(errno=RET.OK, errmsg="OK")
+
 
