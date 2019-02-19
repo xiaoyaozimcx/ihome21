@@ -237,3 +237,112 @@ def register():
     session['nick_name'] = mobile
     # 返回结果
     return jsonify(errno=RET.OK, errmsg="注册成功")
+
+@passport_blue.route('/api/v1.0/session',methods=['POST'])
+def login():
+    """
+    用户登陆
+    1/获取参数.mobile  password
+    2/检查参数是否完整
+    3/使用正则验证手机号格式
+    4/根据手机号确认用户是否存在
+    5/校验密码
+    6/保存用户登录时间
+    7/提交数据到mysql
+    8/返回结果
+    :return:
+    """
+    # 获取参数
+    mobile = request.json.get('mobile')
+    password = request.json.get('password')
+    # 检查参数的完整性
+    if not all([mobile, password]):
+        return jsonify(errno=RET.PARAMERR,errmsg='参数缺失' )
+    # 检查手机号格式
+    if not re.match(r'1[3456789]\d{9}$', mobile):
+        return jsonify(errno=RET.DATAERR,errmsg='手机格式错误')
+    # 根据手机号检查用户是否注册过
+    try:
+        user = User.query.filter_by(mobile=mobile).first()
+    except Exception as e:
+        assert isinstance(current_app, object)
+        current_app.logger.error(e)
+        return jsonify(errno=RET.DBERR,errmsg='查询用户失败')
+    # 判断查询结果
+    if not user:
+        return jsonify(errno=RET.NODATA,errmsg='用户未注册')
+    # 检查密码是否正确
+    if not user.check_passowrd(password):
+        return jsonify(errno=RET.PWDERR,errmsg='密码错误')
+
+    # 用户是否存在和密码正确，建议在一起判断，返回前端一个模糊的错误信息
+    # if not user or not user.check_password(password):
+    #     return jsonify(errno=RET.ROLEERR,errmsg='用户名或密码错误' )
+    # 保存登录时间
+    # user.last_login = datetime.now()
+
+    # 提交数据到mysql
+    try:
+        db.session.add(user)
+        db.session.commit()
+    except Exception as e:
+        current_app.logger.error(e)
+        db.session.rollback()
+        return jsonify(errno=RET.THIRDERR,errmsg='保存数据失败')
+    # 实现状态保持
+    session['user_id'] = user.id
+    session['mobile'] = user.mobile
+    # 因为用户会多次登录，有可能会修改昵称，如果修改了为修改后的昵称，否则，昵称为手机号
+    session['name'] = user.name
+    # 返回结果
+    return jsonify(errno=RET.OK,errmsg='登陆成功')
+
+
+
+@passport_blue.route('/api/v1.0/session', methods=['GET'])
+# 获取登陆状态,显示右上角登陆信息
+def logging_status():
+    """
+    一、页面右上角用户信息展示，检查用户登录状态，如果用户已经登录，显示用户信息，
+    否则提供登录注册入口！
+    1.1尝试从redis中获取用户缓存的用户信息，获取user_id
+    1.2如果有user_id, 根据id查询mysql，获取用户信息
+    1.3如果查询到用户信息，返回用户信息给模板
+    """
+    user_id = session.get('user_id')
+    user_mobile = session.get('mobile')
+    user_name = session.get('name')
+    user = None
+    if user_id:
+        try:
+            user = User.query.get(user.mobile)
+        except Exception as e:
+            current_app.logger.error(e)
+
+        data = {
+            'user_id':user_id,
+            'name':user_name if user_name else None,
+            'user_info': user_mobile if user_mobile else None
+
+        }
+        return jsonify(errno='0', errmsg='OK', data=data)
+    else:
+        return jsonify(errno=RET.SESSIONERR, errmsg='未登录')
+
+
+
+
+@passport_blue.route('/api/v1.0/session',methods=['DELETE'])
+def logout():
+    """
+    用户退出
+    1、退出的本质是把服务器缓存的用户信息清除
+    2、使用session对象清除用户信息
+
+    补充：
+    如果是前后端分离项目，退出登录请求方法为delete
+    """
+    session.pop('user_id',None)
+    session.pop('name',None)
+    session.pop('mobile',None)
+    return jsonify(errno=RET.OK,errmsg='OK')
