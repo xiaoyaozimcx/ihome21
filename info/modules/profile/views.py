@@ -19,8 +19,6 @@ def get_user_auth():
             'id_card':user.id_card}
         return jsonify(errmo=RET.OK, errmsg='OK', data=data)
 
-
-
 @profile_blue.route('/api/v1.0/user/auth',methods=['POST'])
 @login_required
 def set_user_auth():
