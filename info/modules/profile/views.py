@@ -34,6 +34,7 @@ def set_user_auth():
     if not re.match(r'^[1-9]\d{5}(19|20)\d{2}((0[1-9])|(10|11|12))(([0-2][1-9])|10|20|30|31)\d{3}[0-9Xx]$', id_card):
         return jsonify(errno = RET.PARAMERR,errmsg = '请输入正确的身份证号')
 
+
     try:
         User.query.filter_by(id=user_id, real_name=None, id_card=None).update(
             {"real_name": real_name, "id_card": id_card})
