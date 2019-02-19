@@ -37,7 +37,7 @@ def my_houses_list():
     except Exception as e:
         current_app.logger.error(e)
         return jsonify(errno=RET.DBERR, errmsg='查询数据异常')
-    # 如果实名认证,查询该房东所有房屋信息并排序,遍历添加到列表
+    # 如果实名认证,查询该房东所有房屋信息并降序排序,遍历添加到列表
     if real_name:
         try:
             houses = House.query.filer(House.user_id == user.id).order_by(House.create_time.desc()).all()
