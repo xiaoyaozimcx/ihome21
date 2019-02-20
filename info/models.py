@@ -70,7 +70,7 @@ class Area(BaseModel, db.Model):
         """将对象转换为字典数据"""
         area_dict = {
             "aid": self.id,
-            "aname": self.nameQINIU_DOMIN_PREFI
+            "aname": self.name
         }
         return area_dict
 
