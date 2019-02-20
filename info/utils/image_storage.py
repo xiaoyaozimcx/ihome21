@@ -4,7 +4,7 @@ from qiniu import Auth, put_data
 
 # 需要填写你的 Access Key 和 Secret Key
 access_key = 'o9K9jppUrBshceh2KyST6H7BpGocnfUs8cik8fhO'
-secret_key = 'o9K9jppUrBshceh2KyST6H7BpGocnfUs8cik8fhO'
+secret_key = 'qkrq3c-eJgbbrbsQSm4n7_7XIfNinOVXYBa2t0MI'
 
 # 要上传的空间
 bucket_name = 'ihome21'
@@ -36,6 +36,6 @@ def storage(data):
 
 
 if __name__ == '__main__':
-    file_name = input("输入上传的文件")
+    file_name = input("请输入文件名")
     with open(file_name, "rb") as f:
         storage(f.read())

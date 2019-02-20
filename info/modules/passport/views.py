@@ -1,5 +1,5 @@
 from . import passport_blue
-from flask import request,jsonify,current_app,make_response,session
+from flask import request,jsonify,current_app,make_response,session, g
 from info.utils.response_code import RET
 from info.utils.captcha.captcha import captcha
 from info import redis_store
@@ -8,6 +8,7 @@ from info.models import User
 import re,random
 from info.libs.yuntongxun import sms
 from info import db
+from info.utils.commons import login_required
 
 # @passport_blue.route('/login')
 # def login():
@@ -300,6 +301,7 @@ def login():
 
 
 @passport_blue.route('/api/v1.0/session', methods=['GET'])
+@login_required
 # 获取登陆状态,显示右上角登陆信息
 def logging_status():
     """
@@ -309,25 +311,34 @@ def logging_status():
     1.2如果有user_id, 根据id查询mysql，获取用户信息
     1.3如果查询到用户信息，返回用户信息给模板
     """
-    user_id = session.get('user_id')
-    user_mobile = session.get('mobile')
-    user_name = session.get('name')
-    user = None
-    if user_id:
-        try:
-            user = User.query.get(user.mobile)
-        except Exception as e:
-            current_app.logger.error(e)
-
-        data = {
-            'user_id':user_id,
-            'name':user_name if user_name else None,
-            'user_info': user_mobile if user_mobile else None
-
-        }
-        return jsonify(errno='0', errmsg='OK', data=data)
+    # user_id = session.get('user_id')
+    # user_mobile = session.get('mobile')
+    # user_name = session.get('name')
+    # user = None
+    # if user_id:
+    #     try:
+    #         user = User.query.get(user.mobile)
+    #     except Exception as e:
+    #         current_app.logger.error(e)
+    #
+    #     data = {
+    #         'user_id':user_id,
+    #         'name':user_name if user_name else None,
+    #         'user_info': user_mobile if user_mobile else None
+    #
+    #     }
+    #     return jsonify(errno='0', errmsg='OK', data=data)
+    # else:
+    #     return jsonify(errno=RET.SESSIONERR, errmsg='未登录')
+    user = g.user
+    if not user:
+        return jsonify(errno=RET.SESSIONERR, errmsg='用户未登录')
     else:
-        return jsonify(errno=RET.SESSIONERR, errmsg='未登录')
+        data = {
+            "name": user.name,
+            "user_id": user.id
+        }
+        return jsonify(errno=RET.OK, errmsg='', data=data)
 
 
 
