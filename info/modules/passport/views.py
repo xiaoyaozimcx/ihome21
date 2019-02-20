@@ -312,10 +312,9 @@ def logging_status():
     user_id = session.get('user_id')
     user_mobile = session.get('mobile')
     user_name = session.get('name')
-    user = None
     if user_id:
         try:
-            user = User.query.get(user.mobile)
+            user = User.query.get(user_id)
         except Exception as e:
             current_app.logger.error(e)
 
