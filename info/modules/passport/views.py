@@ -269,16 +269,16 @@ def login():
         assert isinstance(current_app, object)
         current_app.logger.error(e)
         return jsonify(errno=RET.DBERR,errmsg='查询用户失败')
-    # 判断查询结果
-    if not user:
-        return jsonify(errno=RET.NODATA,errmsg='用户未注册')
-    # 检查密码是否正确
-    if not user.check_passowrd(password):
-        return jsonify(errno=RET.PWDERR,errmsg='密码错误')
+    # # 判断查询结果
+    # if not user:
+    #     return jsonify(errno=RET.NODATA,errmsg='用户未注册')
+    # # 检查密码是否正确
+    # if not user.check_passowrd(password):
+    #     return jsonify(errno=RET.PWDERR,errmsg='密码错误')
 
     # 用户是否存在和密码正确，建议在一起判断，返回前端一个模糊的错误信息
-    # if not user or not user.check_password(password):
-    #     return jsonify(errno=RET.ROLEERR,errmsg='用户名或密码错误' )
+    if not user or not user.check_password(password):
+        return jsonify(errno=RET.ROLEERR, errmsg='用户名或密码错误')
     # 保存登录时间
     # user.last_login = datetime.now()
 
@@ -338,7 +338,7 @@ def logging_status():
             "name": user.name,
             "user_id": user.id
         }
-        return jsonify(errno=RET.OK, errmsg='', data=data)
+        return jsonify(errno=RET.OK, errmsg='OK', data=data)
 
 
 

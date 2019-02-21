@@ -12,6 +12,15 @@ import re
 @profile_blue.route('/api/v1.0/user/auth', methods=['GET'])
 @login_required
 def get_user_auth():
+    """
+    获取用户实名信息
+    1 判断是否登陆
+    2 如果已登陆,查询数据库是否有实名信息
+    3 如果没有,正常加载实名页面
+    4 如果有实名信息,则返回0和data
+
+    :return:
+    """
     user = g.user
     if user is None:
         return jsonify(errno=RET.SESSIONERR, errmsg='用户未登录')
@@ -48,8 +57,8 @@ def set_user_auth():
     #     return jsonify(errno=RET.SESSIONERR, errmsg="保存用户实名信息失败")
     # return jsonify(errno=RET.OK, errmsg="OK")
     """
-    1 获取参数
-    2 校验是否登陆
+    1 判断是否登陆
+    2 获取参数
     3 校验参数
     4 保存数据至数据库
     5 返回结果

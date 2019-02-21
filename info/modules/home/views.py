@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import current_app, redirect, g, jsonify, request, session
 from info import db
 from . import home_blue
@@ -24,9 +25,10 @@ def favicon():
 def my_houses_list():
     """
     我的房屋发布列表:
-    1 获取数据库该房东相关房屋信息
-    2 遍历,并以字典格式添加至data列表
-    3 返回结果和data
+    1 判断是否登陆
+    2 获取数据库该房东相关房屋信息
+    3 遍历,并以字典格式添加至data列表
+    4 返回结果和data
 
     :return:
     """
@@ -50,6 +52,7 @@ def my_houses_list():
 @login_required
 def home_page_image():
     """
+    首页推荐图片展示:
     1 查询数据库,过滤筛选创建时间倒序排序,limit前5个House对象
     2 判断是否拿到数据
     3 创建空列表data
@@ -114,7 +117,8 @@ def house_release():
     unit = request.json.get('unit')
 
     # 校验
-    if not all([title, price, area_id, address, room_count, acreage, unit, capacity, beds, deposit, min_days, max_days, facility]):
+    if not all([title, price, area_id, address, room_count, acreage, unit, capacity, beds, deposit, min_days, max_days,
+                facility]):
         return jsonify(errno=RET.PARAMERR, errmsg='参数缺失')
     # 数据类型转换
     try:
@@ -156,7 +160,7 @@ def house_release():
     return jsonify(errno=RET.OK, errmsg='个人房源上传成功', data=data)
 
 
-@home_blue.route('/api/v1.0/areas',methods=['GET'])
+@home_blue.route('/api/v1.0/areas', methods=['GET'])
 def city_list():
     """
     城区列表
@@ -171,16 +175,15 @@ def city_list():
         areas = Area.query.all()
     except Exception as e:
         current_app.logger.error(e)
-        return jsonify(errno=RET.DBERR,errmsg='获取城区数据失败')
-    #准备城区数据列表
+        return jsonify(errno=RET.DBERR, errmsg='获取城区数据失败')
+    # 准备城区数据列表
     area_list = []
     # 遍历数据库获取到的城区信息
     for area in areas:
         # 遍历的字典存入列表
         area_list.append(area.to_dict())
     # 返回前段数据
-    return jsonify(errno=RET.OK,errmsg='OK',data=area_list)
-
+    return jsonify(errno=RET.OK, errmsg='OK', data=area_list)
 
 
 @home_blue.route('/api/v1.0/houses/<int:house_id>', methods=["GET"])
@@ -284,84 +287,106 @@ def house_image(house_id):
     return jsonify(errno=RET.OK, errmsg='房源图片上传成功', data=data)
 
 
-# 前端数据通过查询参数获取，方法为get
 @home_blue.route('/api/v1.0/houses')
 def house_search():
     """
-    房屋搜索
-
+    房屋搜索:
+    1 获取请求参数
+    2 判断参数
+    3 将字符串转换为日期格式
+    4 查询,筛选地区,根据时间查询冲突订单,并取反
+    5 查询房屋并分页
+    6 遍历,获取字典数据,添加至列表
+    7 返回结果
 
     :return:
     """
-    area_id = request.args.get('aid')
-    start_date = request.args.get('sd')
-    end_date = request.args.get('ed')
-    sort_key = request.args.get('sk')
-    page = request.args.get('p', 1)
-    if area_id:
-        try:
-            area_id = int(area_id)
-        except Exception as e:
-            current_app.logger.error(e)
-            return jsonify(errno=RET.PARAMERR, errmsg='数据类型错误')
 
-    if page:
-        try:
-            page = int(page)
-        except Exception as e:
-            current_app.logger.error(e)
-            return jsonify(errno=RET.PARAMERR, errmsg='数据类型错误')
+    # 获取请求参数
+    area_id = request.args.get('aid', '')
+    start_date_str = request.args.get('sd', '')
+    end_date_str = request.args.get('ed', '')
+    sort_key = request.args.get('sk', 'new')
+    page = request.args.get('p', '1')
+    # 判断参数
+    try:
+        start_date = None
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
 
-    # 业务处理
-    # 排除当前用户发布的房屋
+        end_date = None
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
+        if start_date and end_date:
+            assert start_date <= end_date
+
+    except Exception as e:
+        current_app.logger.error(e)
+        return jsonify(errno=RET.PARAMERR, errmsg="日期参数有误")
+
+    try:
+        page = int(page)
+    except Exception as e:
+        current_app.logger.error(e)
+        page = 1
+
+    # 定义查询参数列表
     filters = []
-    if 'user_id' in session:
-        filters.append(House.user_id != (session['user_id']))
-    # 先根据地区ID查找满足条件的房子
-    filters.append(House.area_id == area_id)
-
-    # 排序规则,默认根据最新排列
-    sort = House.id.desc()
-    if sort_key == 'booking':
-        sort = House.order_count.desc()
-    elif sort_key == 'price-inc':
-        sort = House.price.asc()
-    elif sort_key == 'price-des':
-        sort = House.price.desc()
-
+    # 根据区域查询
+    if area_id:
+        filters.append(House.area_id == area_id)
+    # 根据时间查询不冲突的房屋
     try:
-        houses_obj = House.query.filter(*filters).order_by(sort)
+        order = Order()
+        conflict_orders = []
+        if start_date and end_date and order.status not in ["CANCELED", "REJECTED"]:
+            conflict_orders = order.query.filter(Order.end_date >= start_date, Order.begin_date <= end_date).all()
+
+        elif start_date and order.status not in ["CANCELED", "REJECTED"]:
+            conflict_orders = order.query.filter(Order.end_date >= start_date).all()
+
+        elif end_date and order.status not in ["CANCELED", "REJECTED"]:
+            conflict_orders = order.query.filter(Order.begin_date <= end_date).all()
+
     except Exception as e:
         current_app.logger.error(e)
-        return jsonify(errno=RET.DBERR, errmsg='查询房屋错误')
+        return jsonify(errno=RET.DBERR, errmsg='查询冲突订单失败')
 
-    # 从完成状态的订单中挑选不满足条件房屋，根据id取反
+    if conflict_orders:
+        # 根据冲突订单获取冲突的房屋id
+        conflict_house_id = [order.house_id for order in conflict_orders]
+        # 查询不冲突的房屋
+        filters.append(~House.id.in_(conflict_house_id))
+
+    # 查询房屋并分页
     try:
-        orders_obj = Order.query.filter(Order.status != 'REJECTED').all()
+        if sort_key == 'booking':
+            paginate = House.query.filter(*filters).order_by(House.order_count.desc()).paginate(page, 5, False)
+        elif sort_key == 'price-inc':
+            paginate = House.query.filter(*filters).order_by(House.price).paginate(page, 5, False)
+        elif sort_key == 'price-des':
+            paginate = House.query.filter(*filters).order_by(House.price.desc()).paginate(page, 5, False)
+        else:
+            paginate = House.query.filter(*filters).order_by(House.create_time.desc()).paginate(page, 5, False)
+
     except Exception as e:
         current_app.logger.error(e)
-        return jsonify(errno=RET.DBERR, errmsg='订单查询异常')
-    # 获取订单中的不满足条件的房屋编号
-    orders_list = []
-    for order in orders_obj:
-        if ((order.begin_date < start_date) and (order.end_date > start_date)) or (
-            (order.begin_date >= start_date) and (order.begin_date <= end_date)):
-            orders_list.append(order)
-    # 筛选
-    for order in orders_list:
-        for house in houses_obj:
-            if order.house_id == house.id:
-                houses_obj.remove(house)
+        return jsonify(errno=RET.DBERR, errmsg='查询分页数据失败')
 
-    total = 0
-    for house in houses_obj:
-        total += 1
+    # 使用分页对象获取分页后的数据
+    houses_list = paginate.items
+    total_page = paginate.pages
 
-    houses = []
-    for house in houses_obj:
-        houses.append(house.to_basic_dict())
+    # 遍历,获取字典数据
+    houses_dict_list = []
+    for houses in houses_list:
+        houses_dict_list.append(houses.to_basic_dict())
+
     data = {
-        'total_page': total,
-        'houses': houses
+        "houses": houses_dict_list,
+        "total_page": total_page
     }
+
     return jsonify(errno=RET.OK, errmsg='OK', data=data)
+
